@@ -1,32 +1,30 @@
 var Guestbook = (function() {
-  var self = this,
-      callbacks = [],
-      jsonp_callback = function(json) {
-        self.entries = json;
-        runCallbacks();
-      }, _form;
+  var self = this, callbacks = [], _form;
 
   self.entries = [];
   self.subdomain = window.location.href.replace(/\.neocities\.org/i, '');
 
-  function bind(callback) {
-    callbacks.push(callback);
+  function getPage(page, callback) {
+    $.get("http://neocities-guestbook.herokuapp.com", { page: page }, function(json) {
+      self.entries = json
+      callback.call(self, page, json)
+    });
   }
 
-  function getPage(page) {
-    var script = document.createElement('script');
-    script.type = "text/javascript";
-    script.src = "http://neocities-guestbook.herokuapp.com?key=" + window.encodeURIComponent(self.subdomain) + "&page=" + page + "&callback=Guestbook.jsonp_callback";
-    document.body.appendChild(script);
-  }
-
-  function runCallbacks() {
-    callbacks.forEach(function(callback) {
-      try {
-        callback.call(self, self.entries);
-      } catch(e) {
-        (console || {error: function() {}}).error(e);
-      }
+  function CreateEntry(name, msg, callback) {
+    $.ajax({
+      url: "http://neocities-guestbook.herokuapp.com",
+      type: 'POST',
+      data: {
+        name: name,
+        message: msg
+      },
+      dataType: 'json',
+      success: function(json) {
+        self.entries.push(json);
+        callback.call(this, json);
+      },
+      error: callback
     });
   }
 
@@ -85,7 +83,6 @@ var Guestbook = (function() {
 
   self.form = form;
   self.bind = bind;
-  self.jsonp_callback = jsonp_callback;
   self.getPage = getPage;
 
   return self;
