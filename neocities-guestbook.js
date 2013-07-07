@@ -55,38 +55,30 @@ var Guestbook = (function() {
 
   function addEntry(entry) {
     self.entries.shift(entry);
-    list().prepend(createListEntry(entry));
+    list().prepend(createListEntryRow2(entry));
+    list().prepend(createListEntryRow1(entry));
   }
 
-  function createListEntry(entry) {
-    var li = $(document.createElement('li')),
-        div = $(document.createElement('div')),
-        p = $(document.createElement('p'));
+  function createListEntryRow1(entry){
+    var tr= $('<tr />');
+    tr.append('<td class="name">Name: ' + entry.name  + '</td>');
+    tr.append('<td class="message" rowspan=2>' + entry.message  + '</td>');
+    return tr;
+  }
 
-    div
-      .append(
-        $(document.createElement('span')).text(entry['name'])
-      )
-      .append(
-        $(document.createElement('span')).text(entry['created_at'])
-      )
-      .append(
-        p.text(entry['message'])
-      );
-
-    li
-      .append(div)
-      .append(p);
-
-    return li;
+  function createListEntryRow2(entry){
+    var tr= $('<tr />');
+    tr.append('<td class="created_at">Created: ' + entry.created_at  + '</td>');
+    return tr;
   }
 
   function list() {
     if (!_list || !_list.children()[0]) {
-      _list = _list || $(document.createElement('ul'));
+      _list = _list || $('<table id="messages" border=3 />');
 
       $.each(self.entries, function() {
-        _list.append(createListEntry(this));
+        _list.append(createListEntryRow1(this));
+        _list.append(createListEntryRow2(this));
       });
     }
     return _list;
