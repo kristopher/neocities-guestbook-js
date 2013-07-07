@@ -1,90 +1,237 @@
 var Guestbook = (function() {
-  var self = this, callbacks = [], _form;
+  var self = this, callbacks = [], _form, _list, _pagination;
 
+  self.current_page = 1;
   self.entries = [];
-  self.subdomain = window.location.href.replace(/\.neocities\.org/i, '');
 
-  function getPage(page, callback) {
-    $.get("http://neocities-guestbook.herokuapp.com", { page: page }, function(json) {
-      self.entries = json
-      callback.call(self, page, json)
-    });
+  function reload() {
+    _list.empty();
+    list();
+    _pagination.empty();
+    pagination();
   }
 
-  function CreateEntry(name, msg, callback) {
+  function getPage(page) {
+    if (Number(page) > 0) {
+      $.get("http://neocities-guestbook.herokuapp.com", { page: page }, function(json) {
+        self.entries = json;
+        self.current_page = Number(page);
+        reload();
+      });
+    } else {
+      (console || {error: function() {}}).error('Page is out of bounds: ' + page);
+    }
+  }
+
+  function nextPage() {
+    getPage(self.current_page + 1)
+  }
+
+  function prevPage() {
+    getPage(self.current_page - 1);
+  }
+
+  function createEntry(options) {
     $.ajax({
       url: "http://neocities-guestbook.herokuapp.com",
       type: 'POST',
       data: {
-        name: name,
-        message: msg
+        subdomain: 'test',
+        name: options['name'],
+        message: options['message'],
       },
       dataType: 'json',
       success: function(json) {
-        self.entries.push(json);
-        callback.call(this, json);
+        addEntry(json);
+        form()[0].reset();
+
+        if (options['success']) {
+          options['success'].call(this, json);
+        }
       },
-      error: callback
+      error: options['error']
     });
   }
 
+  function AddEntry(entry) {
+    self.entries.shift(entry);
+    list().prepend(createListEntry(entry));
+  }
+
+  function createListEntry(entry) {
+    var li = $(document.createElement('li')),
+        div = $(document.createElement('div')),
+        p = $(document.createElement('p'));
+
+    div
+      .append(
+        $(document.createElement('span')).text(entry['name'])
+      )
+      .append(
+        $(document.createElement('span')).text(entry['created_at'])
+      )
+      .append(
+        p.text(entry['message'])
+      );
+
+    li
+      .append('div')
+      .append('p');
+
+    return li;
+  }
+
+  function list() {
+    if (!_list || !_list.children()[0]) {
+      _list = _list || $(document.createElement('ul'));
+
+      $.each(self.entries, function() {
+        _list.append(createListEntry(this));
+      });
+    }
+    return _list;
+  }
+
+  function pagination() {
+    if (!_pagination || !_pagination.children()[0]) {
+      _pagination = _pagination || $(document.createElement('div'));
+
+      var prev = $(document.createElement('span')),
+          next = $(document.createElement('span'));
+
+      prev.text('Previous');
+      next.text('Next');
+      if (self.current_page > 1) {
+        prev
+          .addClass('active')
+          .data('page', self.current_page - 1);
+      }
+      next.data('page', self.current_page + 1);
+      next.addClass('active');
+
+      prev.on("click", prevPage);
+      next.on("click", nextPage);
+
+      _pagination.append(prev);
+      _pagination.append(next);
+    }
+    return _pagination;
+  }
+
   function form() {
-    if (!_form) {
-      var return_to = document.createElement('input'),
-          name = document.createElement('input'),
-          msg = document.createElement('input'),
-          submit = document.createElement('input'),
+    if (!_form || !_form.children()[0]) {
+      var return_to = $(document.createElement('input')),
+          name = $(document.createElement('input')),
+          msg = $(document.createElement('input')),
+          submit = $(document.createElement('input')),
           div, label;
 
-      _form = document.createElement('form');
+      _form = _form || $(document.createElement('form'));
 
-      _form.action = "http://neocities-guestbook.herokuapp.com?key=" + window.encodeURIComponent(self.subdomain);
-      _form.method = "POST";
+      _form.attr("action", "http://neocities-guestbook.herokuapp.com");
+      _form.attr("method", "POST");
 
-      return_to.type = "hidden";
-      return_to.name = "return_to";
-      return_to.value = window.location.href;
+      return_to.attr("type", "hidden");
+      return_to.attr("name", "return_to");
+      return_to.attr("value", window.location.href);
 
-      _form.appendChild(return_to);
+      _form.append(return_to);
 
-      name.type = "text";
-      name.name = "name";
+      name.attr("type", "text");
+      name.attr("name", "name");
 
-      div = document.createElement('div');
+      div = $(document.createElement('div'));
 
-      label = document.createElement('label');
-      label.innerHTML = "Name";
-      label.for = "name";
+      label = $(document.createElement('label'));
+      label.text('Name')
+      label.attr("for", "name");
 
-      div.appendChild(label);
-      div.appendChild(name);
-      _form.appendChild(div);
+      div.append(label);
+      div.append(name);
+      _form.append(div);
 
-      msg.type = "text"
-      msg.name = "message"
+      msg.attr("type", "text");
+      msg.attr("name", "message");
 
-      div = document.createElement('div');
+      div = $(document.createElement('div'));
 
-      label = document.createElement('label');
-      label.innerHTML = "Message";
-      label.for = "message";
+      label = $(document.createElement('label'));
+      label.text("Message");
+      label.attr("for", "message");
 
-      div.appendChild(label);
-      div.appendChild(msg);
-      _form.appendChild(div);
+      div.append(label);
+      div.append(msg);
+      _form.append(div);
 
-      submit.type = "submit"
-      submit.value = "Save"
+      submit.attr("type", "submit");
+      submit.val("Save");
 
-      _form.appendChild(submit);
+      _form.append(submit);
+
+      function validateForm() {
+        _form
+          .find('div.error')
+            .remove()
+          .end()
+          .find('input.invalid')
+            .removeClass('invalid');
+        return (validateName() && validateMsg());
+      }
+
+      function validateName() {
+        if (!name.val()) {
+          name.addClass('invalid');
+          name.after($('<div class="error">Cannot be blank</div>'));
+        } else if (name.val().length > 100) {
+          name.addClass('invalid');
+          name.after($('<div class="error">Cannot be more than 100 characters</div>'));
+        } else {
+          return true;
+        }
+        return false;
+      }
+
+      function validateMsg() {
+        if (!msg.val()) {
+          msg.addClass('invalid');
+          msg.after($('<div class="error">Cannot be blank</div>'));
+        } else if (msg.val() > 140) {
+          msg.addClass('invalid');
+          msg.after($('<div class="error">Cannot be more than 140 characters</div>'));
+        } else {
+          return true;
+        }
+        return false;
+      }
+
+      _form.on("submit", function(e) {
+        e.preventDefault();
+        if (validateForm()) {
+          createEntry({
+            name: name.val(),
+            message: msg.val()
+          });
+        }
+        return false;
+      });
     }
     return _form;
   }
 
   self.form = form;
-  self.bind = bind;
+  self.list = list;
+  self.pagination = pagination;
   self.getPage = getPage;
+  self.reload = reload;
 
   return self;
 
 }).call({});
+
+
+$.fn.guestbook = function() {
+  this.append(Guestbook.form())
+  this.append(Guestbook.list());
+  this.append(Guestbook.pagination);
+  Guestbook.getPage(1);
+}
