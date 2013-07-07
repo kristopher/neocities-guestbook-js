@@ -53,7 +53,7 @@ var Guestbook = (function() {
     });
   }
 
-  function AddEntry(entry) {
+  function addEntry(entry) {
     self.entries.shift(entry);
     list().prepend(createListEntry(entry));
   }
@@ -75,8 +75,8 @@ var Guestbook = (function() {
       );
 
     li
-      .append('div')
-      .append('p');
+      .append(div)
+      .append(p);
 
     return li;
   }
